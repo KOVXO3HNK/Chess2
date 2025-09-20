@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: telegram-chess-server
+    rootDir: server
+    env: node
+    plan: free
+    runtime: node
+    nodeVersion: 20
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/quests
+    autoDeploy: true
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: WEBAPP_URL
+        value: https://telegramchess.vercel.app
+      - key: BOT_TOKEN         # заполнишь в панели Render
+        sync: false
+      - key: JWT_SECRET        # заполнишь в панели Render
+        sync: false
