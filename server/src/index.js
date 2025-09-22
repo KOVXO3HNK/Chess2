@@ -13,6 +13,7 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const server = http.createServer(app);
 const io = new SocketIOServer(server);
+await initDb().catch(e => console.error('DB init error', e))
 const PORT = process.env.PORT || 8080;
 
 app.get('/healthz', (_,res)=>res.send('ok'));
