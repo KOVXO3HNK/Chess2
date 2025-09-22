@@ -5,19 +5,19 @@ services:
     env: node
     plan: free
     buildCommand: |
-  # --- server deps ---
-  npm ci || npm install --no-audit --no-fund
+      # --- server deps ---
+      npm ci || npm install --no-audit --no-fund
 
-  # --- client build ---
-  cd ../client
-  npm install --no-audit --no-fund
-  npm run build
+      # --- client build (НЕ используем npm ci, чтобы не упираться в lock) ---
+      cd ../client
+      npm install --no-audit --no-fund
+      npm run build
 
-  # --- copy build into server/public ---
-  cd ../server
-  rm -rf public
-  mkdir -p public
-  cp -r ../client/dist/* public/
+      # --- copy build into server/public ---
+      cd ../server
+      rm -rf public
+      mkdir -p public
+      cp -r ../client/dist/* public/
     startCommand: node src/index.js
     healthCheckPath: /healthz
     autoDeploy: true
