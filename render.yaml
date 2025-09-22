@@ -1,20 +1,27 @@
 services:
   - type: web
-    name: telegram-chess-server
+    name: telegram-chess-all-in-one
     rootDir: server
     env: node
     plan: free
-    runtime: node
-    buildCommand: npm install
-    startCommand: npm start
-    healthCheckPath: /api/quests
+    buildCommand: |
+      npm ci
+      cd ../client
+      npm ci
+      npm run build
+      cd ../server
+      rm -rf public
+      mkdir -p public
+      cp -r ../client/dist/* public/
+    startCommand: node src/index.js
+    healthCheckPath: /healthz
     autoDeploy: true
     envVars:
       - key: PORT
         value: 10000
-      - key: WEBAPP_URL
-        value: https://telegramchess.vercel.app
-      - key: BOT_TOKEN         # заполнишь в панели Render
+      - key: BOT_TOKEN
         sync: false
-      - key: JWT_SECRET        # заполнишь в панели Render
+      - key: WEBAPP_URL
+        sync: false
+      - key: JWT_SECRET
         sync: false
