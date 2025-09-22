@@ -8,7 +8,7 @@ services:
       # --- server deps ---
       npm ci || npm install --no-audit --no-fund
 
-      # --- client build (чиним баг npm с native rollup) ---
+      # --- client build (не упираемся в lock + чиним rollup native) ---
       cd ../client
       rm -f package-lock.json
       npm install --no-audit --no-fund
