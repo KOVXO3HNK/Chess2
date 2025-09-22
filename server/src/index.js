@@ -1,3 +1,5 @@
+import { initDb, upsertPlayer, getPlayer, setPlayerRating, leaderboard } from './db.js'
+import { elo } from './elo.js'
 import 'dotenv/config';
 import express from 'express';
 import http from 'http';
