@@ -5,10 +5,15 @@ services:
     env: node
     plan: free
     buildCommand: |
-      npm ci
+      # --- server deps ---
+      npm ci || npm install --no-audit --no-fund
+
+      # --- client build (НЕ используем npm ci, чтобы не упираться в lock) ---
       cd ../client
-      npm ci
+      npm install --no-audit --no-fund
       npm run build
+
+      # --- copy build into server/public ---
       cd ../server
       rm -rf public
       mkdir -p public
@@ -24,4 +29,6 @@ services:
       - key: WEBAPP_URL
         sync: false
       - key: JWT_SECRET
+        sync: false
+      - key: DATABASE_URL
         sync: false
