@@ -9,7 +9,7 @@ export default function Matchmaking({ user, onFound }) {
   useEffect(() => {
     const h = ({ roomId, color, oppId }) => {
       setSearching(false)
-      onFound({ roomId, color, oppId })
+      onFound?.({ roomId, color, oppId })
     }
     mm.on('match.found', h)
     return () => mm.off('match.found', h)
@@ -17,7 +17,8 @@ export default function Matchmaking({ user, onFound }) {
 
   function find() {
     setSearching(true)
-    mm.emit('queue.join', { userId: user?.id || ('guest:' + Math.random().toString(36).slice(2, 6)) })
+    const id = user?.id || ('guest:' + Math.random().toString(36).slice(2,6))
+    mm.emit('queue.join', { userId: id })
   }
   function cancel() {
     setSearching(false)
@@ -27,9 +28,9 @@ export default function Matchmaking({ user, onFound }) {
   return (
     <div className="card">
       <div className="card-header"><strong>Быстрый матч</strong></div>
-      {!searching ?
-        <button className="btn" onClick={find}>Найти соперника</button> :
-        <button className="btn outline" onClick={cancel}>Отменить поиск…</button>}
+      {!searching
+        ? <button className="btn" onClick={find}>Найти соперника</button>
+        : <button className="btn outline" onClick={cancel}>Отменить поиск…</button>}
     </div>
   )
 }
