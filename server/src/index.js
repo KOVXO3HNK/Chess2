@@ -3,7 +3,6 @@ import { createServer } from 'http'
 import { Server } from 'socket.io'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import bodyParser from 'body-parser'
 
 import { initDb, upsertPlayer, getPlayer, setPlayerRating, leaderboard } from './db.js'
 import { elo } from './elo.js'
@@ -13,28 +12,23 @@ const __dirname = path.dirname(__filename)
 
 const app = express()
 const server = createServer(app)
-const io = new Server(server) // тот же домен, CORS не нужен
+const io = new Server(server) // same-origin
 
-app.use(bodyParser.json())
+app.use(express.json())
 
-// ---------------- API ----------------
-
-// health
+// ---------- API ----------
 app.get('/healthz', (_, res) => res.send('ok'))
 
-// лидерборд
 app.get('/api/leaderboard', async (_, res) => {
   const rows = await leaderboard(50)
   res.json({ ok: true, rows })
 })
 
-// профиль
 app.get('/api/profile/:id', async (req, res) => {
   const p = await getPlayer(req.params.id)
   res.json({ ok: true, player: p || null })
 })
 
-// инициализация игрока
 app.post('/api/player/init', async (req, res) => {
   const { id, username } = req.body || {}
   if (!id) return res.status(400).json({ ok: false, error: 'no id' })
@@ -43,7 +37,6 @@ app.post('/api/player/init', async (req, res) => {
   res.json({ ok: true, player: p })
 })
 
-// результат матча (elo)
 app.post('/api/match/result', async (req, res) => {
   const { whiteId, blackId, result } = req.body || {}
   if (!whiteId || !blackId || !result) return res.status(400).json({ ok: false, error: 'bad payload' })
@@ -60,8 +53,7 @@ app.post('/api/match/result', async (req, res) => {
   res.json({ ok: true, white: { from: w.rating, to: rW }, black: { from: b.rating, to: rB } })
 })
 
-// ---------------- Socket.IO ----------------
-
+// ---------- Socket.IO ----------
 const queue = [] // [{socketId, userId}]
 
 io.on('connection', (socket) => {
@@ -71,15 +63,15 @@ io.on('connection', (socket) => {
     tryMatch()
   })
   socket.on('queue.leave', () => {
-    const i = queue.findIndex((q) => q.socketId === socket.id)
+    const i = queue.findIndex(q => q.socketId === socket.id)
     if (i >= 0) queue.splice(i, 1)
   })
   socket.on('disconnect', () => {
-    const i = queue.findIndex((q) => q.socketId === socket.id)
+    const i = queue.findIndex(q => q.socketId === socket.id)
     if (i >= 0) queue.splice(i, 1)
   })
 
-  // базовые room-события для твоего существующего мультиплеера (если нужно)
+  // комнатная логика (если используешь)
   socket.on('createRoom', ({ roomId }) => socket.join(roomId))
   socket.on('joinRoom', ({ roomId }) => socket.join(roomId))
   socket.on('move', ({ roomId, move, fen }) => socket.to(roomId).emit('opponentMove', { move, fen }))
@@ -95,14 +87,13 @@ function tryMatch() {
   }
 }
 
-// ---------------- Static ----------------
-// Render-билд кладётся в server/public
+// ---------- Static (Render копирует dist в server/public) ----------
 app.use(express.static(path.join(__dirname, '..', 'public')))
 app.get('*', (_, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'index.html'))
 })
 
-// ---------------- Start ----------------
+// ---------- Start ----------
 const PORT = process.env.PORT || 10000
 await initDb().catch((e) => console.error('DB init error', e))
 server.listen(PORT, () => console.log('Server on http://localhost:' + PORT))
