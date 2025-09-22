@@ -8,9 +8,11 @@ services:
       # --- server deps ---
       npm ci || npm install --no-audit --no-fund
 
-      # --- client build (НЕ используем npm ci, чтобы не упираться в lock) ---
+      # --- client build (чиним баг npm с native rollup) ---
       cd ../client
+      rm -f package-lock.json
       npm install --no-audit --no-fund
+      npm rebuild || true
       npm run build
 
       # --- copy build into server/public ---
