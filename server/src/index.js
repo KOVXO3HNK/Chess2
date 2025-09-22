@@ -13,47 +13,45 @@ const __dirname = path.dirname(__filename)
 
 const app = express()
 const server = createServer(app)
-const io = new Server(server, {
-  cors: { origin: '*' }
-})
+const io = new Server(server) // тот же домен, CORS не нужен
 
 app.use(bodyParser.json())
 
-// ---------- API ----------
+// ---------------- API ----------------
 
-// Healthcheck
-app.get('/healthz', (req, res) => res.json({ ok: true }))
+// health
+app.get('/healthz', (_, res) => res.send('ok'))
 
-// Лидерборд
-app.get('/api/leaderboard', async (req, res) => {
+// лидерборд
+app.get('/api/leaderboard', async (_, res) => {
   const rows = await leaderboard(50)
   res.json({ ok: true, rows })
 })
 
-// Профиль игрока
+// профиль
 app.get('/api/profile/:id', async (req, res) => {
   const p = await getPlayer(req.params.id)
   res.json({ ok: true, player: p || null })
 })
 
-// Инициализация игрока (сразу после входа из Telegram)
+// инициализация игрока
 app.post('/api/player/init', async (req, res) => {
-  const { id, username } = req.body
+  const { id, username } = req.body || {}
   if (!id) return res.status(400).json({ ok: false, error: 'no id' })
   await upsertPlayer(String(id), username || null)
   const p = await getPlayer(String(id))
   res.json({ ok: true, player: p })
 })
 
-// Результат матча
+// результат матча (elo)
 app.post('/api/match/result', async (req, res) => {
-  const { whiteId, blackId, result } = req.body
-  if (!whiteId || !blackId || !result) return res.status(400).json({ ok: false })
+  const { whiteId, blackId, result } = req.body || {}
+  if (!whiteId || !blackId || !result) return res.status(400).json({ ok: false, error: 'bad payload' })
 
   const w = (await getPlayer(String(whiteId))) || { rating: 1200 }
   const b = (await getPlayer(String(blackId))) || { rating: 1200 }
 
-  let scoreA = result === 'white' ? 1 : result === 'draw' ? 0.5 : 0
+  const scoreA = result === 'white' ? 1 : result === 'draw' ? 0.5 : 0
   const [rW, rB] = elo(w.rating, b.rating, scoreA)
 
   await setPlayerRating(String(whiteId), rW, result === 'white' ? 'win' : result === 'black' ? 'loss' : 'draw')
@@ -62,27 +60,29 @@ app.post('/api/match/result', async (req, res) => {
   res.json({ ok: true, white: { from: w.rating, to: rW }, black: { from: b.rating, to: rB } })
 })
 
-// ---------- Socket.IO ----------
+// ---------------- Socket.IO ----------------
 
-const queue = [] // {socketId, userId}
+const queue = [] // [{socketId, userId}]
 
 io.on('connection', (socket) => {
-  console.log('socket connected', socket.id)
-
+  // быстрый матчмейкинг
   socket.on('queue.join', ({ userId }) => {
     queue.push({ socketId: socket.id, userId })
     tryMatch()
   })
-
   socket.on('queue.leave', () => {
-    const i = queue.findIndex(q => q.socketId === socket.id)
+    const i = queue.findIndex((q) => q.socketId === socket.id)
+    if (i >= 0) queue.splice(i, 1)
+  })
+  socket.on('disconnect', () => {
+    const i = queue.findIndex((q) => q.socketId === socket.id)
     if (i >= 0) queue.splice(i, 1)
   })
 
-  socket.on('disconnect', () => {
-    const i = queue.findIndex(q => q.socketId === socket.id)
-    if (i >= 0) queue.splice(i, 1)
-  })
+  // базовые room-события для твоего существующего мультиплеера (если нужно)
+  socket.on('createRoom', ({ roomId }) => socket.join(roomId))
+  socket.on('joinRoom', ({ roomId }) => socket.join(roomId))
+  socket.on('move', ({ roomId, move, fen }) => socket.to(roomId).emit('opponentMove', { move, fen }))
 })
 
 function tryMatch() {
@@ -95,15 +95,14 @@ function tryMatch() {
   }
 }
 
-// ---------- Static build ----------
-
-app.use(express.static(path.join(__dirname, '../../client/dist')))
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../../client/dist/index.html'))
+// ---------------- Static ----------------
+// Render-билд кладётся в server/public
+app.use(express.static(path.join(__dirname, '..', 'public')))
+app.get('*', (_, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'index.html'))
 })
 
-// ---------- Start ----------
-const PORT = process.env.PORT || 8080
-initDb().then(() => {
-  server.listen(PORT, () => console.log('Server started on ' + PORT))
-})
+// ---------------- Start ----------------
+const PORT = process.env.PORT || 10000
+await initDb().catch((e) => console.error('DB init error', e))
+server.listen(PORT, () => console.log('Server on http://localhost:' + PORT))
